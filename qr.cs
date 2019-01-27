@@ -1,4 +1,6 @@
 using QRCoder;
+using Pdf417;
+using DataMatrix.net;
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -6,6 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Xml;
 using System.Runtime.InteropServices;
+using System.Runtime;
 using System.IO;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -21,9 +24,16 @@ class GenerateQR {
 	private Dictionary<String, String> marks { get; set; }
 	private static string srcfile = @".\temp.docx";
 	private static string file = @".\job.docx";
-	private static string imageFile = @".\qr.png";
+	private static string imageFile = @".\pdf417.bmp";
 	private static string labelText = "[Dash_code]";
-	
+	private static DataMatrix.net.DmtxImageEncoder DataEncoder;
+    private static DataMatrix.net.DmtxImageEncoderOptions DataEncodeOptions;
+    private static Image Dataimg;
+    private static Bitmap Databitmap;
+    private static System.Drawing.Color DM_forecolour = System.Drawing.Color.Black;
+    private static System.Drawing.Color DM_backcolour = System.Drawing.Color.White; 
+	private static Bitmap barcodeImage;
+	 
 	public GenerateQR() {
 		marks = new Dictionary<String, String>()  {
 			{"[First]","первая"},
@@ -38,7 +48,7 @@ class GenerateQR {
 		
 		GenerateQR gqr = new GenerateQR() ;
 		
-			
+		generatePDF417("ST00012|Москва");	
 		generaterQr("ST00012|Москва");		 
 				
 		File.Copy(srcfile, file, true);
@@ -68,7 +78,7 @@ class GenerateQR {
 		
 			
 			generaterQr("ST00012|Казань");
-			
+			GenerateBarcode_DataMatrix("ST00012|Казань");
 			gqr.marks["[First]"] = "последняя";
 			
 			full_table(	document, (DocumentFormat.OpenXml.Wordprocessing.Table) table2, gqr.marks);
@@ -155,6 +165,50 @@ class GenerateQR {
 				bitmap.Save("qr.png", ImageFormat.Jpeg);
 			}
 		}	
+	}
+	
+	
+	 private static void GenerateBarcode_DataMatrix(string inputData)
+        {
+
+            // 
+            try // Encode
+                {
+                    DataEncoder = new DataMatrix.net.DmtxImageEncoder();
+                    DataEncodeOptions = new DataMatrix.net.DmtxImageEncoderOptions();
+
+                DataEncodeOptions.ForeColor = DM_forecolour; // Set Fore Color 
+                DataEncodeOptions.BackColor = DM_backcolour; // Set Bg Color
+
+                // Encode Data Matrix Image
+                Dataimg = DataEncoder.EncodeImage(inputData, DataEncodeOptions);
+
+                // Init Barcode Image
+                Databitmap = new Bitmap(Dataimg);
+                barcodeImage = Databitmap;
+
+                //Label12.Text = "Hashcode: " + DataEncoder.GetHashCode;
+				Databitmap.Save(@".\dm.jpg");
+                
+                }
+                catch (Exception ex)
+                {
+                    //MessageBox.Show(ex.Message);
+                    return;
+                }
+               
+            }
+
+       
+
+        
+	
+	private static void generatePDF417(String str) {
+
+
+            var barcode = new Barcode("6273917032349234", Pdf417.Settings.Default);
+
+            barcode.Canvas.SaveBmp(@".\pdf417.bmp");
 	}
 	
 	private static void addImageToCell(TableCell cell, string relationshipId) {
