@@ -26,11 +26,11 @@ class GenerateQR {
 	
 	public GenerateQR() {
 		marks = new Dictionary<String, String>()  {
-			{"[First]","Первая"},
-			{"[Second]","Вторая"},
-			{"[Third]","Третья"},
-			{"[Fourth]","Четвертая"},
-			{"[Fifth]","Пятая"}
+			{"[First]","первая"},
+			{"[Second]","вторая"},
+			{"[Third]","третья"},
+			{"[Fourth]","четвертая"},
+			{"[Fifth]","пятая"}
 		};
 	}
 	
@@ -69,7 +69,7 @@ class GenerateQR {
 			
 			generaterQr("ST00012|Казань");
 			
-			gqr.marks["[First]"] = "Замена";
+			gqr.marks["[First]"] = "последняя";
 			
 			full_table(	document, (DocumentFormat.OpenXml.Wordprocessing.Table) table2, gqr.marks);
 			
@@ -128,8 +128,9 @@ class GenerateQR {
 									cell.RemoveAllChildren();
 									addImageToCell(cell, document.MainDocumentPart.GetIdOfPart(imagePart));									
 								} else if (cell.InnerText.Contains(mrk.Key)) {
+									String str = cell.InnerText;
 									((DocumentFormat.OpenXml.Wordprocessing.Paragraph) item).RemoveAllChildren();
-									((DocumentFormat.OpenXml.Wordprocessing.Paragraph) item).Append(new Run(new Text(mrk.Value + cell.InnerText)));
+									((DocumentFormat.OpenXml.Wordprocessing.Paragraph) item).Append(new Run(new Text(str.Replace(mrk.Key,mrk.Value))));
 								}
 								
 							}	
