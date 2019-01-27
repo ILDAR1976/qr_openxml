@@ -13,57 +13,51 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using A = DocumentFormat.OpenXml.Drawing;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
+using System.Collections.Generic;
+
 
 class GenerateQR {
-	static void Main(string[] args)	{
-			
-			QRCodeGenerator.ECCLevel eccLevel = QRCodeGenerator.ECCLevel.L;
-				var generator = new QRCodeGenerator();
-			var data = generator.CreateQrCode("ST00020|12|Проверка связи", eccLevel);
-					int pixelsPerModule = 20;
-					string foreground = "#000000";
-					string background = "#FFFFFF";
-
-			using (var code = new QRCode(data)) {
-										using (var bitmap = code.GetGraphic(pixelsPerModule, foreground, background, true))
-										{
-											bitmap.Save("qr.png", ImageFormat.Jpeg);
-										}
-									
-
-			}	
-				
-		  string srcfile = @".\temp.docx";
-		  string file = @".\job.docx";
-		  
-		  string imageFile = @".\qr.png";
-		  string labelText = "PersonMainPhoto";
-		  File.Copy(srcfile, file, true);
-		  
-		  using (var document = WordprocessingDocument.Open(file, isEditable: true))
-		  {
-			var mainPart = document.MainDocumentPart;
-			var table = mainPart.Document.Body.Descendants<Table>().First();
-
-			var pictureCell = table.Descendants<TableCell>().First(c => c.InnerText == labelText);
-
-			ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Jpeg);
-
-			using (FileStream stream = new FileStream(imageFile, FileMode.Open))
-			{
-			  imagePart.FeedData(stream);
-			}
-
-			pictureCell.RemoveAllChildren();
-			AddImageToCell(pictureCell, mainPart.GetIdOfPart(imagePart));
-
 	
-			 Paragraph p1 = new Paragraph(new Run(new Text("")));
-			 Paragraph p2 = new Paragraph(new Run(new Text("")));
+	private Dictionary<String, String> marks { get; set; }
+	private static string srcfile = @".\temp.docx";
+	private static string file = @".\job.docx";
+	private static string imageFile = @".\qr.png";
+	private static string labelText = "[Dash_code]";
+	
+	public GenerateQR() {
+		marks = new Dictionary<String, String>()  {
+			{"[First]","Первая"},
+			{"[Second]","Вторая"},
+			{"[Third]","Третья"},
+			{"[Fourth]","Четвертая"},
+			{"[Fifth]","Пятая"}
+		};
+	}
+	
+	static void Main(string[] args)	{
+		
+		GenerateQR gqr = new GenerateQR() ;
+		
+			
+		generaterQr("ST00012|Москва");		 
+				
+		File.Copy(srcfile, file, true);
+		  
+		using (var document = WordprocessingDocument.Open(file, isEditable: true))
+		{
+			
+			
+			DocumentFormat.OpenXml.Wordprocessing.Table table = document.MainDocumentPart.Document.Body.Descendants<Table>().ElementAt(0);
+			DocumentFormat.OpenXml.OpenXmlElement  table2 = ((DocumentFormat.OpenXml.OpenXmlElement) table).CloneNode(true);
+			
+			full_table(	document, table, gqr.marks);
+			
+			Paragraph p1 = new Paragraph(new Run(new Text("")));
+			Paragraph p2 = new Paragraph(new Run(new Text("")));
 					
 			document.MainDocumentPart.Document.Body.InsertAfter( 
 				p1,
-				table
+				(DocumentFormat.OpenXml.OpenXmlElement) table
 			);
 		
 		
@@ -72,26 +66,97 @@ class GenerateQR {
 				p1
 			);
 		
-		
+			
+			generaterQr("ST00012|Казань");
+			
+			gqr.marks["[First]"] = "Замена";
+			
+			full_table(	document, (DocumentFormat.OpenXml.Wordprocessing.Table) table2, gqr.marks);
+			
 			document.MainDocumentPart.Document.Body.InsertAfter( 
-				table.CloneNode(true),
+				table2,
 				p2
 			);
 		
-		
-			/*
-			document.MainDocumentPart.Document.Body.InsertAfter(tbl,table);
-			document.MainDocumentPart.Document.Body.InsertAfter(tbl2,tbl);
-			*/
-			mainPart.Document.Save();
 			
-			int iTest = mainPart.Document.Body.Elements<Table>().Count();
+				
+			document.Save();
+			
+			int iTest = document.MainDocumentPart.Document.Body.Elements<Table>().Count();
 			Console.WriteLine("" + iTest);
-		  }
+		}
 	}
 
-	private static void AddImageToCell(TableCell cell, string relationshipId)
-	{
+	private static void full_block(
+		DocumentFormat.OpenXml.Packaging.WordprocessingDocument document,
+		Dictionary<String, String> marks) {
+		
+		
+		int table_count = 0;
+		foreach (var table in document.MainDocumentPart.Document.Body.Descendants<Table>()) {
+			Console.WriteLine("table " + ++table_count);
+			
+			full_table(document,table,marks);
+		}
+		
+	}
+
+
+	private static void full_table(	
+		DocumentFormat.OpenXml.Packaging.WordprocessingDocument document,
+		DocumentFormat.OpenXml.Wordprocessing.Table table,
+		Dictionary<String, String> marks) {
+	 
+		
+		//int cell_count = 0;
+		
+		foreach (var cell in table.Descendants<TableCell>()) {
+			//Console.WriteLine(" " + ++cell_count + " cell value: " + cell);
+			
+			foreach (var item in cell) {
+
+				if (item.GetType() == typeof(DocumentFormat.OpenXml.Wordprocessing.Table)) {
+					full_table(document,(DocumentFormat.OpenXml.Wordprocessing.Table) item, marks);
+				} else if (item.GetType() == typeof(DocumentFormat.OpenXml.Wordprocessing.Paragraph)) {
+							foreach (var mrk in marks) {
+								if (cell.InnerText.Contains(labelText)) {
+									ImagePart imagePart = document.MainDocumentPart.AddImagePart(ImagePartType.Jpeg);
+									using (FileStream stream = new FileStream(imageFile, FileMode.Open))
+									{
+										imagePart.FeedData(stream);
+									}
+									cell.RemoveAllChildren();
+									addImageToCell(cell, document.MainDocumentPart.GetIdOfPart(imagePart));									
+								} else if (cell.InnerText.Contains(mrk.Key)) {
+									((DocumentFormat.OpenXml.Wordprocessing.Paragraph) item).RemoveAllChildren();
+									((DocumentFormat.OpenXml.Wordprocessing.Paragraph) item).Append(new Run(new Text(mrk.Value + cell.InnerText)));
+								}
+								
+							}	
+				}
+				
+			}
+		}
+		
+	}
+
+	private static void generaterQr(String str) {
+		QRCodeGenerator.ECCLevel eccLevel = QRCodeGenerator.ECCLevel.L;
+		var generator = new QRCodeGenerator();
+		var data = generator.CreateQrCode(str, eccLevel);
+		int pixelsPerModule = 20;
+		string foreground = "#000000";
+		string background = "#FFFFFF";
+
+		using (var code = new QRCode(data)) {
+			using (var bitmap = code.GetGraphic(pixelsPerModule, foreground, background, true))
+			{
+				bitmap.Save("qr.png", ImageFormat.Jpeg);
+			}
+		}	
+	}
+	
+	private static void addImageToCell(TableCell cell, string relationshipId) {
 	  var element =
 		new Drawing(
 		  new DW.Inline(
@@ -153,7 +218,7 @@ class GenerateQR {
 			DistanceFromRight = (UInt32Value)0U
 		  });
 
-	  cell.Append(new Paragraph(new Run(element)));
+	    cell.Append(new Paragraph(new Run(element)));
 	}	
 	
 }
